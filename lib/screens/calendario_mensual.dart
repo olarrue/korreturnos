@@ -181,11 +181,23 @@ class _CalendarioMensualState extends State<CalendarioMensual>
         if (f.year == mes.year && f.month == mes.month) {
           int diaMin = 0;
 
-          // 1. Minutos base del turno asignado
+          // 1. Minutos base guardados en el propio día (congelados al asignar el turno)
+          final regHasiera = r['hasiera']?.toString() ?? '';
+          final regAmaiera = r['amaiera']?.toString() ?? '';
+
           if (r['lan_orduak'] != null && (r['lan_orduak'] as num).toInt() > 0) {
             diaMin = (r['lan_orduak'] as num).toInt();
           } else if (r['lan_horduak'] != null && (r['lan_horduak'] as num).toInt() > 0) {
             diaMin = (r['lan_horduak'] as num).toInt();
+          } else if (regHasiera.isNotEmpty && regAmaiera.isNotEmpty) {
+            final p1 = regHasiera.split(":");
+            final p2 = regAmaiera.split(":");
+            if (p1.length >= 2 && p2.length >= 2) {
+              final min1 = (int.tryParse(p1[0]) ?? 0) * 60 + (int.tryParse(p1[1]) ?? 0);
+              int min2 = (int.tryParse(p2[0]) ?? 0) * 60 + (int.tryParse(p2[1]) ?? 0);
+              if (min2 < min1) min2 += 24 * 60;
+              diaMin = min2 - min1;
+            }
           } else {
             final turno = r['turno']?.toString();
             final tipo = r['tipo']?.toString() ?? '';
@@ -575,7 +587,17 @@ class _CalendarioMensualState extends State<CalendarioMensual>
             if (reg != null) {
               final turno = reg['turno']?.toString();
               final tipo = reg['tipo']?.toString() ?? '';
-              turnoData = turnosCache["$turno-$tipo"] ?? turnosCache[turno];
+              final baseTurno = turnosCache["$turno-$tipo"] ?? turnosCache[turno];
+              final regH = reg['hasiera']?.toString() ?? '';
+              final regA = reg['amaiera']?.toString() ?? '';
+              final regLan = (reg['lan_orduak'] as num?)?.toInt() ?? 0;
+
+              turnoData = {
+                if (baseTurno != null) ...baseTurno,
+                if (regH.isNotEmpty) 'hasiera': regH,
+                if (regA.isNotEmpty) 'amaiera': regA,
+                if (regLan > 0) 'lan_orduak': regLan,
+              };
             }
 
             return Expanded(

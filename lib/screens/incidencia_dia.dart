@@ -61,14 +61,17 @@ class _IncidenciaDiaScreenState extends State<IncidenciaDiaScreen> {
 
     final obs = registro?['observaciones']?.toString() ?? '';
     final ajuste = (registro?['ajuste_minutos'] as int?) ?? 0;
+    final regH = registro?['hasiera']?.toString() ?? '';
+    final regA = registro?['amaiera']?.toString() ?? '';
+    final regLan = (registro?['lan_orduak'] as num?)?.toInt() ?? 0;
 
     setState(() {
       _notasController.text = obs;
       _ajusteMinutos = ajuste;
       _minutosInputController.text = _ajusteMinutos == 0 ? "" : "$_ajusteMinutos";
-      hasiera = turnoData?['hasiera']?.toString();
-      amaiera = turnoData?['amaiera']?.toString();
-      lanOrduakBase = turnoData?['lan_orduak'] as int?;
+      hasiera = regH.isNotEmpty ? regH : turnoData?['hasiera']?.toString();
+      amaiera = regA.isNotEmpty ? regA : turnoData?['amaiera']?.toString();
+      lanOrduakBase = regLan > 0 ? regLan : (turnoData?['lan_orduak'] as int?);
       _adjuntos = adjuntosDB;
       _cargando = false;
     });

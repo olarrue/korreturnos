@@ -124,12 +124,24 @@ class _DetalleTurnoState extends State<DetalleTurno>
 
     final obs = reg?['observaciones']?.toString() ?? '';
     final aj = (reg?['ajuste_minutos'] as num?)?.toInt() ?? 0;
+    final regH = reg?['hasiera']?.toString() ?? '';
+    final regA = reg?['amaiera']?.toString() ?? '';
+    final regLan = (reg?['lan_orduak'] as num?)?.toInt() ?? 0;
+
+    final mergedTurnoInfo = <String, dynamic>{
+      if (tData != null) ...tData,
+      'turno': widget.turno,
+      'tipo': widget.tipo,
+      if (regH.isNotEmpty) 'hasiera': regH,
+      if (regA.isNotEmpty) 'amaiera': regA,
+      if (regLan > 0) 'lan_orduak': regLan,
+    };
 
     setState(() {
       servicios = data;
-      turnoDataInfo = tData;
-      hasiera = tData?['hasiera'];
-      amaiera = tData?['amaiera'];
+      turnoDataInfo = mergedTurnoInfo;
+      hasiera = mergedTurnoInfo['hasiera']?.toString();
+      amaiera = mergedTurnoInfo['amaiera']?.toString();
       observaciones = obs;
       ajusteMinutos = aj;
       tieneNota = obs.trim().isNotEmpty || aj != 0 || adjuntos.isNotEmpty;
@@ -847,7 +859,36 @@ class _DetalleTurnoState extends State<DetalleTurno>
                     ),
                   );
 
-                  if (resultado == true) {
+                  if (resultado is Map) {
+                    _huboCambios = true;
+                    if (resultado['eliminado'] == true) {
+                      if (!context.mounted) return;
+                      Navigator.pop(context, true);
+                      return;
+                    }
+                    final nuevoT =
+                        resultado['turno']?.toString() ?? widget.turno;
+                    final nuevoTipo =
+                        resultado['tipo']?.toString() ?? widget.tipo;
+                    // Actualizamos únicamente el día que se está editando, sin alterar días pasados
+                    await db.insertRegistro(widget.fecha, nuevoT, nuevoTipo);
+                    if (!context.mounted) return;
+                    if (nuevoT != widget.turno || nuevoTipo != widget.tipo) {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => DetalleTurno(
+                            turno: nuevoT,
+                            tipo: nuevoTipo,
+                            fecha: widget.fecha,
+                            soloLectura: widget.soloLectura,
+                          ),
+                        ),
+                      );
+                    } else {
+                      await _cargarDatos();
+                    }
+                  } else if (resultado == true) {
                     _huboCambios = true;
                     await _cargarDatos();
                   }

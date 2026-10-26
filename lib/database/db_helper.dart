@@ -75,6 +75,44 @@ class DBHelper {
         await db.execute(
             "ALTER TABLE registro_diario ADD COLUMN ajuste_minutos INTEGER DEFAULT 0");
       }
+      if (!cols.contains('hasiera')) {
+        await db.execute(
+            "ALTER TABLE registro_diario ADD COLUMN hasiera TEXT DEFAULT ''");
+      }
+      if (!cols.contains('amaiera')) {
+        await db.execute(
+            "ALTER TABLE registro_diario ADD COLUMN amaiera TEXT DEFAULT ''");
+      }
+      if (!cols.contains('lan_orduak')) {
+        await db.execute(
+            "ALTER TABLE registro_diario ADD COLUMN lan_orduak INTEGER DEFAULT 0");
+      }
+
+      // Rellenar (congelar) horario e información de jornada en los días ya registrados
+      // para que futuros cambios en un turno no alteren los días pasados/ya metidos.
+      await db.execute('''
+        UPDATE registro_diario
+        SET
+          hasiera = COALESCE(
+            NULLIF(hasiera, ''),
+            (SELECT t.hasiera FROM turnos t WHERE t.turno = registro_diario.turno AND t.tipo = registro_diario.tipo LIMIT 1),
+            (SELECT t.hasiera FROM turnos t WHERE t.turno = registro_diario.turno LIMIT 1),
+            ''
+          ),
+          amaiera = COALESCE(
+            NULLIF(amaiera, ''),
+            (SELECT t.amaiera FROM turnos t WHERE t.turno = registro_diario.turno AND t.tipo = registro_diario.tipo LIMIT 1),
+            (SELECT t.amaiera FROM turnos t WHERE t.turno = registro_diario.turno LIMIT 1),
+            ''
+          ),
+          lan_orduak = COALESCE(
+            CASE WHEN lan_orduak IS NOT NULL AND lan_orduak > 0 THEN lan_orduak ELSE NULL END,
+            (SELECT t.lan_orduak FROM turnos t WHERE t.turno = registro_diario.turno AND t.tipo = registro_diario.tipo LIMIT 1),
+            (SELECT t.lan_orduak FROM turnos t WHERE t.turno = registro_diario.turno LIMIT 1),
+            0
+          )
+        WHERE hasiera IS NULL OR hasiera = '' OR amaiera IS NULL OR amaiera = '' OR lan_orduak IS NULL OR lan_orduak = 0
+      ''');
     } catch (e) {
       debugPrint("Error asegurando columnas en registro_diario: $e");
     }
@@ -501,12 +539,36 @@ class DBHelper {
     // Si ya existía un registro ese día, conservamos sus notas y ajuste de jornada
     final anterior = await getTurnoPorFecha(fecha);
 
+    // Obtenemos los datos actuales del turno para congelar su horario y duración en este día
+    final turnoActual = await getTurno(turno, tipo);
+    final hasiera = turnoActual?['hasiera']?.toString() ?? '';
+    final amaiera = turnoActual?['amaiera']?.toString() ?? '';
+    int lanOrduak = (turnoActual?['lan_orduak'] as num?)?.toInt() ?? 0;
+
+    if (lanOrduak <= 0 && hasiera.isNotEmpty && amaiera.isNotEmpty) {
+      try {
+        final p1 = hasiera.split(':');
+        final p2 = amaiera.split(':');
+        if (p1.length >= 2 && p2.length >= 2) {
+          final min1 =
+              (int.tryParse(p1[0]) ?? 0) * 60 + (int.tryParse(p1[1]) ?? 0);
+          int min2 =
+              (int.tryParse(p2[0]) ?? 0) * 60 + (int.tryParse(p2[1]) ?? 0);
+          if (min2 < min1) min2 += 24 * 60;
+          lanOrduak = min2 - min1;
+        }
+      } catch (_) {}
+    }
+
     await dbClient.insert(
       'registro_diario',
       {
         'fecha': fecha,
         'turno': turno,
         'tipo': tipo,
+        'hasiera': hasiera,
+        'amaiera': amaiera,
+        'lan_orduak': lanOrduak,
         'observaciones': anterior?['observaciones'] ?? '',
         'ajuste_minutos': anterior?['ajuste_minutos'] ?? 0,
       },
@@ -762,7 +824,7 @@ class DBHelper {
     return res.map((e) => e['turno'] as String).toList();
   }
 
-  /// Inserta o actualiza un turno (marcado con es_manual = 1 por defecto)
+  /// Inserta o actualiza un turno en el catálogo sin alterar los días ya metidos en el calendario
   Future<void> guardarTurno({
     required String turno,
     required String tipo,
@@ -775,15 +837,30 @@ class DBHelper {
   }) async {
     final dbClient = await database;
 
+    // Antes de modificar el turno en el catálogo, nos aseguramos de que cualquier día
+    // que ya estuviera metido en registro_diario conserve su horario y duración antiguos.
+    final tRef = turnoAnterior ?? turno;
+    final tipoRef = tipoAnterior ?? tipo;
+    final antiguo = await getTurno(tRef, tipoRef);
+    if (antiguo != null) {
+      final hAnt = antiguo['hasiera']?.toString() ?? '';
+      final aAnt = antiguo['amaiera']?.toString() ?? '';
+      final lAnt = (antiguo['lan_orduak'] as num?)?.toInt() ?? 0;
+
+      await dbClient.execute('''
+        UPDATE registro_diario
+        SET
+          hasiera = CASE WHEN hasiera IS NULL OR hasiera = '' THEN ? ELSE hasiera END,
+          amaiera = CASE WHEN amaiera IS NULL OR amaiera = '' THEN ? ELSE amaiera END,
+          lan_orduak = CASE WHEN lan_orduak IS NULL OR lan_orduak = 0 THEN ? ELSE lan_orduak END
+        WHERE turno = ? AND tipo = ?
+      ''', [hAnt, aAnt, lAnt, tRef, tipoRef]);
+    }
+
     if (turnoAnterior != null && tipoAnterior != null) {
       if (turnoAnterior != turno || tipoAnterior != tipo) {
-        // Si se renombró el turno o tipo, actualizamos tablas hijas
-        await dbClient.update(
-          'registro_diario',
-          {'turno': turno, 'tipo': tipo},
-          where: 'turno = ? AND tipo = ?',
-          whereArgs: [turnoAnterior, tipoAnterior],
-        );
+        // Solo actualizamos el color y borramos la entrada antigua del catálogo de turnos;
+        // NO tocamos registro_diario para que los días ya metidos no cambien.
         await dbClient.update(
           'config_colores',
           {'letra': turno, 'tipo': tipo},
