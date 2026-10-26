@@ -1,0 +1,43 @@
+name: correturnos
+description: App de gestión de turnos
+publish_to: 'none'
+
+version: 1.0.3+4
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # UI básica
+  cupertino_icons: ^1.0.6
+
+  # 🔥 SQLite (funciona en Android, Windows, etc.)
+  sqflite: ^2.3.0
+  sqflite_common_ffi: ^2.3.0   
+
+  # Para rutas de archivos
+  path: ^1.9.0
+  path_provider: ^2.1.3
+
+  # 🔹 (opcional más adelante para fechas)
+  intl: ^0.20.3
+  file_picker: ^13.0.0
+  share_plus: ^13.3.0
+  android_intent_plus: ^6.1.0
+  image_picker: ^1.2.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+
+  # 🔥 TU BASE DE DATOS
+  assets:
+    - assets/datos.db
