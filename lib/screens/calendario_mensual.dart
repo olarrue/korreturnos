@@ -38,6 +38,7 @@ class _CalendarioMensualState extends State<CalendarioMensual>
   List<Map<String, dynamic>> turnosLista = [];
   Set<String> alarmasFechasCache = {};
   Set<String> adjuntosFechasCache = {};
+  Set<String> festivosFechasCache = {};
   Timer? _timerAlarmas;
 
   bool cargando = true;
@@ -106,6 +107,7 @@ class _CalendarioMensualState extends State<CalendarioMensual>
     final turnosDisponibles = await db.getTurnos();
     final alarmasFechas = await db.getFechasConAlarmasActivas();
     final adjuntosFechas = await db.getFechasConAdjuntos();
+    final festivosFechas = await db.getFestivosAnuales();
 
     Map<String, String> calMap = {};
     for (var row in calList) {
@@ -127,6 +129,7 @@ class _CalendarioMensualState extends State<CalendarioMensual>
       turnosLista = turnosDisponibles;
       alarmasFechasCache = alarmasFechas;
       adjuntosFechasCache = adjuntosFechas;
+      festivosFechasCache = festivosFechas;
       cargando = false;
     });
   }
@@ -179,6 +182,10 @@ class _CalendarioMensualState extends State<CalendarioMensual>
       try {
         final f = DateTime.parse(fechaStr);
         if (f.year == mes.year && f.month == mes.month) {
+          // Si el día está marcado como BRU (es_bru == 1), no se contabilizan sus horas en el cómputo total
+          final esBru = (r['es_bru'] as num?)?.toInt() ?? 0;
+          if (esBru == 1) continue;
+
           int diaMin = 0;
 
           // 1. Minutos base guardados en el propio día (congelados al asignar el turno)
@@ -249,6 +256,8 @@ class _CalendarioMensualState extends State<CalendarioMensual>
       try {
         final f = DateTime.parse(fechaStr);
         if (f.year == mes.year && f.month == mes.month) {
+          final esBru = (r['es_bru'] as num?)?.toInt() ?? 0;
+          if (esBru == 1) continue;
           final ajuste = (r['ajuste_minutos'] as num?)?.toInt() ?? 0;
           totalAjuste += ajuste;
         }
@@ -613,6 +622,7 @@ class _CalendarioMensualState extends State<CalendarioMensual>
                 esMesActual: dia.month == fechaMes.month,
                 tieneAlarmaActiva: alarmasFechasCache.contains(diaStr),
                 tieneAdjuntos: adjuntosFechasCache.contains(diaStr),
+                esFestivoAnual: festivosFechasCache.contains(diaStr),
                 onRefresh: inicializar,
               ),
             );

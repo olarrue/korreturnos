@@ -15,6 +15,7 @@ class CeldaDia extends StatelessWidget {
   final bool esMesActual;
   final bool tieneAlarmaActiva;
   final bool tieneAdjuntos;
+  final bool esFestivoAnual;
   final VoidCallback? onRefresh;
 
   const CeldaDia({
@@ -29,6 +30,7 @@ class CeldaDia extends StatelessWidget {
     required this.esMesActual,
     this.tieneAlarmaActiva = false,
     this.tieneAdjuntos = false,
+    this.esFestivoAnual = false,
     this.onRefresh,
   });
 
@@ -82,12 +84,23 @@ class CeldaDia extends StatelessWidget {
     // Comprobar si hay alguna nota o incidencia escrita o archivo adjunto para este día
     final observaciones = registro?['observaciones']?.toString() ?? '';
     final tieneNota = observaciones.trim().isNotEmpty || tieneAdjuntos;
+    final esBru = ((registro?['es_bru'] as num?)?.toInt() ?? 0) == 1;
+    final esFinDeSemana = fecha.weekday == DateTime.saturday ||
+        fecha.weekday == DateTime.sunday;
+    final esDiaFestivoOSdf = esFinDeSemana || esFestivoAnual;
 
     final bg = _colorFondo(turno, tipo);
     final tieneTurno = turno != null;
-    final textColor = tieneTurno
-        ? _contrasteTexto(bg)
-        : (esMesActual ? Colors.black87 : Colors.grey.shade400);
+    // Solo se ponen en rojo las letras de los días explícitamente marcados en el calendario de festivos
+    final Color textColor = esFestivoAnual
+        ? (tieneTurno
+            ? (bg.computeLuminance() > 0.4
+                ? Colors.red.shade800
+                : const Color(0xFFFF4D4D))
+            : (esMesActual ? Colors.red.shade700 : Colors.red.shade300))
+        : (tieneTurno
+            ? _contrasteTexto(bg)
+            : (esMesActual ? Colors.black87 : Colors.grey.shade400));
 
     final hoy = DateTime.now();
     final esHoy = fecha.year == hoy.year &&
@@ -124,6 +137,7 @@ class CeldaDia extends StatelessWidget {
               fecha: fecha,
               turnos: turnosDisponibles,
               coloresDB: coloresDB,
+              esFestivo: esDiaFestivoOSdf,
             ),
           );
 
@@ -198,6 +212,7 @@ class CeldaDia extends StatelessWidget {
               fecha: fecha,
               turnos: turnosDisponibles,
               coloresDB: coloresDB,
+              esFestivo: esDiaFestivoOSdf,
             ),
           );
 
@@ -280,10 +295,14 @@ class CeldaDia extends StatelessWidget {
                       "${fecha.day}",
                       style: TextStyle(
                         fontSize: 11,
-                        fontWeight: esHoy || tieneTurno
+                        fontWeight: esHoy || tieneTurno || esFestivoAnual
                             ? FontWeight.bold
                             : FontWeight.normal,
-                        color: esHoy && !tieneTurno ? Colors.black : textColor,
+                        color: esFestivoAnual
+                            ? textColor
+                            : (esHoy && !tieneTurno
+                                ? Colors.black
+                                : textColor),
                       ),
                     ),
                     // ⭐ Estrella visible al lado del número del día si tiene notas escritas
@@ -306,7 +325,24 @@ class CeldaDia extends StatelessWidget {
                     ],
                   ],
                 ),
-                if (!tieneTurno &&
+                if (esBru)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: Colors.purple.shade700,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: const Text(
+                      "BRU",
+                      style: TextStyle(
+                        fontSize: 7.5,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                      ),
+                    ),
+                  )
+                else if (!tieneTurno &&
                     tipoOrientativo != null &&
                     tipoOrientativo!.isNotEmpty)
                   Container(
@@ -321,7 +357,9 @@ class CeldaDia extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 8,
                         fontWeight: FontWeight.w700,
-                        color: Colors.grey.shade800,
+                        color: esFestivoAnual
+                            ? Colors.red.shade700
+                            : Colors.grey.shade800,
                       ),
                     ),
                   ),
@@ -392,12 +430,14 @@ class DialogoAsignarTurno extends StatefulWidget {
   final DateTime fecha;
   final List<Map<String, dynamic>> turnos;
   final Map<String, int> coloresDB;
+  final bool esFestivo;
 
   const DialogoAsignarTurno({
     super.key,
     required this.fecha,
     required this.turnos,
     required this.coloresDB,
+    this.esFestivo = false,
   });
 
   @override
@@ -406,7 +446,14 @@ class DialogoAsignarTurno extends StatefulWidget {
 
 class _DialogoAsignarTurnoState extends State<DialogoAsignarTurno> {
   // Filtro interno para la pestaña Invierno: 'TODOS', 'LAB', 'SDF'
-  String filtroInvierno = 'TODOS';
+  late String filtroInvierno;
+
+  @override
+  void initState() {
+    super.initState();
+    // Si es sábado, domingo o festivo anual, preseleccionamos SDF; en laborable normal, LAB
+    filtroInvierno = widget.esFestivo ? 'SDF' : 'LAB';
+  }
 
   String _horaCorta(String? h) {
     if (h == null || h.isEmpty) return "";
@@ -748,7 +795,51 @@ class _DialogoAsignarTurnoState extends State<DialogoAsignarTurno> {
               const Icon(Icons.arrow_forward_ios, size: 13, color: Colors.grey),
             ],
           ),
-          onTap: () => Navigator.pop(context, t),
+          onTap: () async {
+            if (widget.esFestivo && !esSDF) {
+              final confirmar = await showDialog<bool>(
+                context: context,
+                builder: (alertCtx) => AlertDialog(
+                  title: Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded,
+                          color: Colors.red.shade700, size: 26),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          "Gogoratu, egun hori jaieguna da",
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                  content: Text(
+                    "Egun hau larunbata, igandea edo urteko jaieguna da, eta '$tTurno ($tTipo)' txanda ez da SDF motakoa.\n\nTxanda hau esleitu nahi duzu hala ere?",
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(alertCtx, false),
+                      child: const Text("Aukeratu beste bat"),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade700,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: () => Navigator.pop(alertCtx, true),
+                      child: const Text("Jarraitu hala ere"),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirmar != true) return;
+            }
+
+            if (!mounted) return;
+            Navigator.pop(context, t);
+          },
         );
       },
     );

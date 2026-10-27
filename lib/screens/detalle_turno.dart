@@ -721,6 +721,12 @@ class _DetalleTurnoState extends State<DetalleTurno>
 
                   final turnosDisponibles = await db.getTurnos();
                   final coloresDB = await db.getColoresTurno();
+                  final esFestivoDB =
+                      await db.esFechaFestivoAnual(widget.fecha);
+                  final esDiaFestivoOSdf =
+                      f.weekday == DateTime.saturday ||
+                          f.weekday == DateTime.sunday ||
+                          esFestivoDB;
 
                   if (!context.mounted) return;
 
@@ -730,6 +736,7 @@ class _DetalleTurnoState extends State<DetalleTurno>
                       fecha: f,
                       turnos: turnosDisponibles,
                       coloresDB: coloresDB,
+                      esFestivo: esDiaFestivoOSdf,
                     ),
                   );
 

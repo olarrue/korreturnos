@@ -87,6 +87,10 @@ class DBHelper {
         await db.execute(
             "ALTER TABLE registro_diario ADD COLUMN lan_orduak INTEGER DEFAULT 0");
       }
+      if (!cols.contains('es_bru')) {
+        await db.execute(
+            "ALTER TABLE registro_diario ADD COLUMN es_bru INTEGER DEFAULT 0");
+      }
 
       // Rellenar (congelar) horario e información de jornada en los días ya registrados
       // para que futuros cambios en un turno no alteren los días pasados/ya metidos.
@@ -183,6 +187,17 @@ class DBHelper {
       ''');
     } catch (e) {
       debugPrint("Error asegurando tabla adjuntos_incidencia: $e");
+    }
+
+    // Asegurar tabla para días festivos anuales marcados por el usuario
+    try {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS festivos_anuales (
+          fecha TEXT PRIMARY KEY
+        )
+      ''');
+    } catch (e) {
+      debugPrint("Error asegurando tabla festivos_anuales: $e");
     }
 
     // Corregir itinerarios de servicios según la tabla itinerarios2
@@ -571,8 +586,28 @@ class DBHelper {
         'lan_orduak': lanOrduak,
         'observaciones': anterior?['observaciones'] ?? '',
         'ajuste_minutos': anterior?['ajuste_minutos'] ?? 0,
+        'es_bru': anterior?['es_bru'] ?? 0,
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> setDiaBru(String fecha, bool esBru) async {
+    final dbClient = await database;
+    await dbClient.update(
+      'registro_diario',
+      {'es_bru': esBru ? 1 : 0},
+      where: 'fecha = ?',
+      whereArgs: [fecha],
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getDiasBru() async {
+    final dbClient = await database;
+    return await dbClient.query(
+      'registro_diario',
+      where: 'es_bru = 1',
+      orderBy: 'fecha DESC',
     );
   }
 
@@ -916,6 +951,41 @@ class DBHelper {
     );
   }
 
+  /// Busca servicios por número o código de servicio y devuelve sus horarios, origen/destino y turno
+  Future<List<Map<String, dynamic>>> buscarServiciosPorNumero(
+      String query) async {
+    final dbClient = await database;
+    final limpio = query.trim();
+    if (limpio.isEmpty) return [];
+
+    return await dbClient.rawQuery('''
+      SELECT
+        s.id,
+        s.turno,
+        s.tipo,
+        s.orden,
+        s.servicio,
+        s.irteera_ordua,
+        s.irteera,
+        s.helmuga_ordua,
+        s.helmuga,
+        s.oharrak,
+        s.des,
+        s.itinerario
+      FROM servicios s
+      WHERE s.servicio IS NOT NULL
+        AND TRIM(s.servicio) != ''
+        AND UPPER(s.servicio) NOT LIKE '%GELTOKIAREN%'
+        AND UPPER(s.servicio) NOT LIKE '%ATSENALDIA%'
+        AND UPPER(s.servicio) LIKE ?
+      ORDER BY
+        CASE WHEN UPPER(TRIM(s.servicio)) = UPPER(?) THEN 0 ELSE 1 END,
+        s.turno ASC,
+        s.tipo ASC,
+        s.orden ASC
+    ''', ['%$limpio%', limpio]);
+  }
+
   // =====================================================
   // 🔹 CALENDARIOS
   // =====================================================
@@ -923,6 +993,59 @@ class DBHelper {
   Future<List<Map<String, dynamic>>> getCalendarioOrientativo() async {
     final dbClient = await database;
     return await dbClient.query('calendario_orientativo');
+  }
+
+  // =====================================================
+  // 🎉 FESTIVOS ANUALES
+  // =====================================================
+
+  Future<Set<String>> getFestivosAnuales() async {
+    final dbClient = await database;
+    try {
+      final res = await dbClient.query('festivos_anuales', orderBy: 'fecha ASC');
+      return res
+          .map((r) => r['fecha']?.toString() ?? '')
+          .where((f) => f.isNotEmpty)
+          .toSet();
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// Alterna (marca o desmarca) un día como festivo anual. Devuelve true si queda marcado.
+  Future<bool> toggleFestivoAnual(String fecha) async {
+    final dbClient = await database;
+    final existe = await dbClient.query(
+      'festivos_anuales',
+      where: 'fecha = ?',
+      whereArgs: [fecha],
+    );
+
+    if (existe.isNotEmpty) {
+      await dbClient.delete(
+        'festivos_anuales',
+        where: 'fecha = ?',
+        whereArgs: [fecha],
+      );
+      return false;
+    } else {
+      await dbClient.insert(
+        'festivos_anuales',
+        {'fecha': fecha},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      return true;
+    }
+  }
+
+  Future<bool> esFechaFestivoAnual(String fecha) async {
+    final dbClient = await database;
+    final res = await dbClient.query(
+      'festivos_anuales',
+      where: 'fecha = ?',
+      whereArgs: [fecha],
+    );
+    return res.isNotEmpty;
   }
 
   // =====================================================

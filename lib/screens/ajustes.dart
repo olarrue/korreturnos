@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'busqueda_servicio.dart';
 import 'colores_turno.dart';
 import 'configurar_semanas.dart';
 import 'copia_seguridad.dart';
+import 'festivos_anuales.dart';
+import 'horas_bru.dart';
 
 class AjustesScreen extends StatefulWidget {
   const AjustesScreen({super.key});
@@ -134,6 +137,60 @@ class _AjustesScreenState extends State<AjustesScreen> {
                   context,
                   MaterialPageRoute(
                     builder: (_) => const CopiaSeguridadScreen(),
+                  ),
+                );
+                if (res == true) {
+                  huboCambios = true;
+                }
+              },
+            ),
+
+            // 4. Botón BRU orduak (Horas BRU)
+            _botonMenu(
+              icono: Icons.timer_off_outlined,
+              colorIcono: Colors.purple,
+              titulo: "BRU orduak",
+              subtitulo: "Hautatu egun bat bere lan-orduak zenbaketa orokorretik kentzeko",
+              onTap: () async {
+                final res = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const HorasBruScreen(),
+                  ),
+                );
+                if (res == true) {
+                  huboCambios = true;
+                }
+              },
+            ),
+
+            // 5. Botón Zerbitzuaren bilaketa (Búsqueda por servicio)
+            _botonMenu(
+              icono: Icons.manage_search_rounded,
+              colorIcono: Colors.blue.shade800,
+              titulo: "Zerbitzuaren bilaketa",
+              subtitulo: "Bilatu zerbitzu zenbaki bat bere ordutegia eta ibilbidea ikusteko",
+              onTap: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const BusquedaServicioScreen(),
+                  ),
+                );
+              },
+            ),
+
+            // 6. Botón Urteko jaiegunak (Festivos anuales)
+            _botonMenu(
+              icono: Icons.celebration_outlined,
+              colorIcono: Colors.red.shade700,
+              titulo: "Urteko jaiegunak",
+              subtitulo: "Markatu urteko jaiegunak egutegian SDF abisuak jasotzeko",
+              onTap: () async {
+                final res = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const FestivosAnualesScreen(),
                   ),
                 );
                 if (res == true) {

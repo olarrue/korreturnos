@@ -9,17 +9,14 @@ import UserNotifications
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     UNUserNotificationCenter.current().delegate = self
-
-    if let controller = window?.rootViewController as? FlutterViewController {
-      configurarCanalAlarmas(messenger: controller.binaryMessenger)
-    }
-
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
-    configurarCanalAlarmas(messenger: engineBridge.applicationRegistrar.messenger())
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "KorreturnosAlarmas") {
+      configurarCanalAlarmas(messenger: registrar.messenger())
+    }
   }
 
   private func configurarCanalAlarmas(messenger: FlutterBinaryMessenger) {
@@ -96,7 +93,6 @@ import UserNotifications
     }
   }
 
-  // Mostrar notificación con sonido incluso si la app está abierta en primer plano
   override func userNotificationCenter(
     _ center: UNUserNotificationCenter,
     willPresent notification: UNNotification,

@@ -20,33 +20,34 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: 3. Instalar dependencias de Flutter y CocoaPods
-        run: |
-          flutter pub get
-          cd ios
-          pod install
+      - name: 3. Obtener dependencias de Flutter
+        run: flutter pub get
 
-      - name: 4. Compilar Korreturnos (Versión Completa Conductor) para iOS
+      - name: 4. Compilar Korreturnos8 (Versión Completa Conductor) para iOS
         run: |
           flutter build ios --release --no-codesign -t lib/main.dart
           mkdir -p Payload
           cp -r build/ios/iphoneos/Runner.app Payload/
-          zip -r -9 Korreturnos.ipa Payload
+          zip -r -9 Korreturnos8.ipa Payload
+          cp Korreturnos8.ipa Korreturnos.ipa
           rm -rf Payload
 
-      - name: 5. Compilar Korreturnos-Familiar para iOS
+      - name: 5. Compilar Korreturnos8-Familiar para iOS
         run: |
           flutter build ios --release --no-codesign -t lib/main_familiar.dart
           mkdir -p Payload
           cp -r build/ios/iphoneos/Runner.app Payload/
-          zip -r -9 Korreturnos-Familiar.ipa Payload
+          zip -r -9 Korreturnos8-Familiar.ipa Payload
+          cp Korreturnos8-Familiar.ipa Korreturnos-Familiar.ipa
           rm -rf Payload
 
       - name: 6. Subir archivos .ipa listos para descargar
         uses: actions/upload-artifact@v4
         with:
-          name: Korreturnos-iPhone-IPAs
+          name: Korreturnos8-iPhone-IPAs
           path: |
+            Korreturnos8.ipa
+            Korreturnos8-Familiar.ipa
             Korreturnos.ipa
             Korreturnos-Familiar.ipa
           retention-days: 30
