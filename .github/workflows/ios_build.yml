@@ -20,8 +20,11 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: 3. Obtener dependencias de Flutter
-        run: flutter pub get
+      - name: 3. Obtener dependencias de Flutter y sincronizar CocoaPods
+        run: |
+          flutter pub get
+          cd ios
+          pod install --repo-update
 
       - name: 4. Compilar Korreturnos8 (Versión Completa Conductor) para iOS
         run: |
