@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="eu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Korreturnos">
+  <meta name="theme-color" content="#263238">
+  <title>Korreturnos</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <style>
+    :root {
+      --primary: #263238;
+      --accent: #f57c00;
+      --bg: #f5f7f8;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    input, textarea {
+      user-select: text;
+      -webkit-user-select: text;
+    }
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #ffffff;
+      color: #1e1e1e;
+      overflow: hidden;
+    }
+    #app {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+    }
+    .appbar {
+      background: #ffffff;
+      color: #1e1e1e;
+      padding-top: var(--safe-top);
+      min-height: calc(54px + var(--safe-top));
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-left: 14px;
+      padding-right: 10px;
+      border-bottom: 1px solid #e0e0e0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      z-index: 10;
+      flex-shrink: 0;
+    }
+    .appbar-title {
+      font-size: 18px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .appbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .icon-btn {
+      background: none;
+      border: none;
+      padding: 8px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #263238;
+      font-size: 20px;
+    }
+    .icon-btn:active {
+      background: rgba(0,0,0,0.08);
+    }
+    .month-selector {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 8px;
+      background: #fff;
+      flex-shrink: 0;
+    }
+    .month-selector-title {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+    }
+    .cal-header {
+      display: flex;
+      background: #f5f5f5;
+      border-bottom: 1px solid #e0e0e0;
+      padding: 5px 0;
+      flex-shrink: 0;
+    }
+    .cal-sem-col {
+      width: 38px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      font-weight: 700;
+      color: #666;
+    }
+    .cal-day-head {
+      flex: 1;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .cal-body {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 2px 0;
+    }
+    .cal-row {
+      display: flex;
+      align-items: stretch;
+      min-height: 92px;
+    }
+    .cal-sem-cell {
+      width: 38px;
+      flex-shrink: 0;
+      border-right: 1px solid #e0e0e0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .cal-cell {
+      flex: 1;
+      margin: 1.5px;
+      padding: 4px 2.5px;
+      border-radius: 4px;
+      border: 0.6px solid #e0e0e0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      min-width: 0;
+    }
+    .cal-cell.hoy {
+      border: 2.5px solid #000000 !important;
+    }
+    .bottom-bar {
+      background: #1e1e1e;
+      color: #ffffff;
+      text-align: center;
+      padding: 12px 16px calc(12px + var(--safe-bottom));
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      box-shadow: 0 -1px 4px rgba(0,0,0,0.2);
+      flex-shrink: 0;
+    }
+    .screen-body {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 16px;
+      padding-bottom: calc(24px + var(--safe-bottom));
+      background: #f8f9fa;
+    }
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      border: 1px solid #e5e7eb;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 11px 16px;
+      border-radius: 10px;
+      font-size: 14.5px;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      width: 100%;
+    }
+    .btn-primary {
+      background: #37474f;
+      color: #fff;
+    }
+    .btn-outline {
+      background: #fff;
+      color: #37474f;
+      border: 1.5px solid #90a4ae;
+    }
+    .btn-danger {
+      background: #d32f2f;
+      color: #fff;
+    }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 14px;
+    }
+    .modal-box {
+      background: #fff;
+      border-radius: 16px;
+      width: 100%;
+      max-width: 480px;
+      max-height: 86vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+    }
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid #e0e0e0;
+      overflow-x: auto;
+      background: #fff;
+      flex-shrink: 0;
+    }
+    .tab {
+      padding: 11px 16px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #616161;
+      border-bottom: 3px solid transparent;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .tab.active {
+      color: #ff6f00;
+      border-bottom-color: #ff6f00;
+    }
+    .chip-row {
+      display: flex;
+      gap: 6px;
+      padding: 8px 12px;
+      border-bottom: 1px solid #eee;
+      flex-wrap: wrap;
+    }
+    .chip {
+      padding: 5px 11px;
+      border-radius: 16px;
+      font-size: 12px;
+      font-weight: 600;
+      background: #f1f3f4;
+      color: #202124;
+      border: 1px solid #dadce0;
+      cursor: pointer;
+    }
+    .chip.active {
+      background: #37474f;
+      color: #fff;
+      border-color: #37474f;
+    }
+    .input-field {
+      width: 100%;
+      padding: 11px 12px;
+      border: 1px solid #cfd8dc;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      background: #fff;
+    }
+    .toast {
+      position: fixed;
+      bottom: calc(20px + var(--safe-bottom));
+      left: 50%;
+      transform: translateX(-50%);
+      background: #323232;
+      color: #fff;
+      padding: 11px 18px;
+      border-radius: 8px;
+      font-size: 13.5px;
+      font-weight: 600;
+      z-index: 2000;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      max-width: 90%;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:12px;">
+      <div style="font-size:18px;font-weight:700;color:#37474f;">Korreturnos kargatzen...</div>
+    </div>
+  </div>
+  <script src="sql-wasm.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
